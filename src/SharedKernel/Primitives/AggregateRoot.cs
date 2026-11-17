@@ -4,7 +4,7 @@ namespace SharedKernel.Primitives;
 
 /// <summary>
 /// Entry point of an aggregate: the only entity repositories load and save, and the only one that raises
-/// domain events. Events are dispatched after the changes are committed.
+/// domain events. Events are saved to the outbox with the changes and delivered after the commit.
 /// </summary>
 public abstract class AggregateRoot : Entity
 {

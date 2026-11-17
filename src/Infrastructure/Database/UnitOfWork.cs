@@ -25,6 +25,7 @@ internal sealed class UnitOfWork(ApplicationDbContext context) : IUnitOfWork, II
         }
     }
 
+    // Domain events are outbox rows saved in the same transaction: a rollback discards them too.
     public async Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<CancellationToken, Task<TResult>> operation,
         CancellationToken cancellationToken = default)
@@ -40,18 +41,16 @@ internal sealed class UnitOfWork(ApplicationDbContext context) : IUnitOfWork, II
         // Going through the execution strategy keeps this correct if connection retries are enabled.
         IExecutionStrategy strategy = context.Database.CreateExecutionStrategy();
 
-        TResult result;
-
         try
         {
-            result = await strategy.ExecuteAsync(
+            return await strategy.ExecuteAsync(
                 async token =>
                 {
                     await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(token);
 
-                    TResult operationResult = await operation(token);
+                    TResult result = await operation(token);
 
-                    if (operationResult.Success)
+                    if (result.Success)
                     {
                         await transaction.CommitAsync(token);
                     }
@@ -63,26 +62,14 @@ internal sealed class UnitOfWork(ApplicationDbContext context) : IUnitOfWork, II
                         context.ChangeTracker.Clear();
                     }
 
-                    return operationResult;
+                    return result;
                 },
                 cancellationToken);
         }
         catch
         {
-            context.DiscardDeferredDomainEvents();
             context.ChangeTracker.Clear();
             throw;
         }
-
-        if (result.Success)
-        {
-            await context.DispatchDeferredDomainEventsAsync();
-        }
-        else
-        {
-            context.DiscardDeferredDomainEvents();
-        }
-
-        return result;
     }
 }

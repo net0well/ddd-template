@@ -3,7 +3,7 @@ using SharedKernel.Primitives;
 
 namespace Domain.Users;
 
-public sealed class User : AggregateRoot
+public sealed class User : AggregateRoot, IAuditable
 {
     public const int NameMaxLength = 100;
 
@@ -22,6 +22,15 @@ public sealed class User : AggregateRoot
     public string PasswordHash { get; private set; }
 
     public IReadOnlyList<string> Roles => _roles.AsReadOnly();
+
+    // Audit stamps are written by the persistence layer on save (see IAuditable).
+    public DateTime CreatedOnUtc { get; }
+
+    public Guid? CreatedBy { get; }
+
+    public DateTime? ModifiedOnUtc { get; }
+
+    public Guid? ModifiedBy { get; }
 
     /// <summary>
     /// Creates a <see cref="Role.Member"/>. Check <see cref="Notifiable.IsValid"/> before persisting.
@@ -69,6 +78,14 @@ public sealed class User : AggregateRoot
     }
 
     public bool HasRole(string role) => _roles.Contains(role, StringComparer.Ordinal);
+
+    /// <summary>Replaces the stored hash, e.g. when the hashing cost changed (rehash on login).</summary>
+    public void ChangePasswordHash(string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+
+        PasswordHash = passwordHash;
+    }
 
     private void CheckName(string name, Notification required, Notification tooLong)
     {

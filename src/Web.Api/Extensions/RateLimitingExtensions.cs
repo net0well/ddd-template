@@ -51,7 +51,7 @@ internal static class RateLimitingExtensions
     private static string GetPartitionKey(HttpContext httpContext) =>
         httpContext.RequestServices.GetRequiredService<IUserContext>().TryGetUserId(out Guid userId)
             ? $"user:{userId}"
-            : $"ip:{httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+            : $"ip:{httpContext.GetClientIp() ?? "unknown"}";
 
     // Same envelope as every other error, plus Retry-After when the limiter knows it.
     private static async ValueTask WriteRejectionAsync(OnRejectedContext context, CancellationToken cancellationToken)

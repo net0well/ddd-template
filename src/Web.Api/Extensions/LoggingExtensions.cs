@@ -1,4 +1,5 @@
 using Application.Abstractions.Authentication;
+using Infrastructure.Outbox;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -14,6 +15,12 @@ internal static class LoggingExtensions
     /// Serilog: levels and extra sinks from the <c>Serilog</c> config section; console as readable text in
     /// Development and as JSON elsewhere; OTLP export when <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set.
     /// </summary>
+    // The outbox polls every second; its SQL would drown the command log (Information in Development).
+    private static bool IsOutboxPolling(LogEvent logEvent) =>
+        logEvent.Properties.TryGetValue("commandText", out LogEventPropertyValue? value) &&
+        value is ScalarValue { Value: string sql } &&
+        sql.StartsWith($"-- {OutboxDiagnostics.PollingQueryTag}", StringComparison.Ordinal);
+
     internal static WebApplicationBuilder AddSerilogLogging(this WebApplicationBuilder builder)
     {
         string serviceName = builder.Environment.ApplicationName;
@@ -26,7 +33,8 @@ internal static class LoggingExtensions
                 .ReadFrom.Configuration(builder.Configuration)
                 .ReadFrom.Services(services)
                 .Enrich.FromLogContext()
-                .Enrich.WithProperty("Application", serviceName);
+                .Enrich.WithProperty("Application", serviceName)
+                .Filter.ByExcluding(IsOutboxPolling);
 
             if (isDevelopment)
             {
@@ -69,6 +77,8 @@ internal static class LoggingExtensions
 
             options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
             {
+                diagnosticContext.Set("ClientIp", httpContext.GetClientIp());
+
                 if (httpContext.RequestServices.GetRequiredService<IUserContext>().TryGetUserId(out Guid userId))
                 {
                     diagnosticContext.Set("UserId", userId);

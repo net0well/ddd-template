@@ -7,7 +7,6 @@ services:
       dockerfile: src/Web.Api/Dockerfile
     ports:
       - 5000:8080
-      - 5001:8081
     environment:
       # Inside the compose network the database host is the service name, not localhost.
       - ConnectionStrings__Database=Host=postgres;Port=5432;Database=clean-architecture;Username=postgres;Password=postgres;Include Error Detail=true;GSS Encryption Mode=Disable

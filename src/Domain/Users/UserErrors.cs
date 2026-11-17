@@ -25,6 +25,10 @@ public static class UserErrors
         "Users.InvalidCredentials",
         "The email or password is incorrect.");
 
+    public static readonly Notification RefreshTokenConflict = Notification.Conflict(
+        "Users.RefreshTokenConflict",
+        "The refresh token was used by another request at the same time. Use the most recent token.");
+
     public static readonly Notification InvalidRefreshToken = Notification.Unauthorized(
         "Users.InvalidRefreshToken",
         "The provided refresh token is invalid or has expired");

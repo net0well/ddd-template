@@ -4,7 +4,6 @@ using Application.Abstractions.Messaging;
 using Domain.Todos;
 using Domain.Users;
 using SharedKernel.Results;
-using SharedKernel.Time;
 
 namespace Application.Todos.Create;
 
@@ -12,8 +11,7 @@ internal sealed class CreateTodoCommandHandler(
     ITodoItemsWritableRepository todoItems,
     IUsersSearchableRepository users,
     IUnitOfWork unitOfWork,
-    IUserContext userContext,
-    IDateTimeProvider dateTimeProvider)
+    IUserContext userContext)
     : ICommandHandler<CreateTodoCommand, Guid>
 {
     public async Task<CommandResult<Guid>> Handle(CreateTodoCommand command, CancellationToken cancellationToken)
@@ -30,8 +28,7 @@ internal sealed class CreateTodoCommandHandler(
             command.Description,
             command.Priority,
             command.DueDate,
-            command.Labels,
-            dateTimeProvider.UtcNow);
+            command.Labels);
 
         if (!todoItem.IsValid)
         {

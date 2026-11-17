@@ -9,6 +9,7 @@ namespace Application.Users.Login;
 
 internal sealed class LoginUserCommandHandler(
     IUsersSearchableRepository users,
+    IUsersWritableRepository writableUsers,
     IRefreshTokensWritableRepository refreshTokens,
     IUnitOfWork unitOfWork,
     IPasswordHasher passwordHasher,
@@ -22,11 +23,18 @@ internal sealed class LoginUserCommandHandler(
         User? user = email.IsValid ? await users.GetByEmailAsync(email, cancellationToken) : null;
 
         // Runs even when the user does not exist, so timing does not reveal registered e-mails.
-        bool passwordMatches = passwordHasher.Verify(command.Password, user?.PasswordHash);
+        PasswordVerificationResult verification = passwordHasher.Verify(command.Password, user?.PasswordHash);
 
-        if (user is null || !passwordMatches)
+        if (user is null || verification == PasswordVerificationResult.Failed)
         {
             return CommandResult.Fail<AccessTokensResponse>(UserErrors.InvalidCredentials);
+        }
+
+        if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+        {
+            // Stored with an older format or cost: upgraded now that the plain password is known.
+            User? tracked = await writableUsers.GetByIdAsync(user.Id, cancellationToken);
+            tracked?.ChangePasswordHash(passwordHasher.Hash(command.Password));
         }
 
         string refreshToken = tokenProvider.GenerateRefreshToken();

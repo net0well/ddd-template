@@ -13,7 +13,7 @@ public sealed class CopyTodoCommandHandlerTests : BaseHandlerTest
 
     public CopyTodoCommandHandlerTests()
     {
-        _handler = new CopyTodoCommandHandler(_searchable, _writable, UnitOfWork, UserContext, DateTimeProvider);
+        _handler = new CopyTodoCommandHandler(_searchable, _writable, UnitOfWork, UserContext);
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public sealed class CopyTodoCommandHandlerTests : BaseHandlerTest
     public async Task Handle_Should_AddANewItemThroughTheWritableSide()
     {
         // Arrange
-        var source = TodoItem.Create(CurrentUserId, "Copy me", Priority.High, null, ["a"], UtcNow);
+        var source = TodoItem.Create(CurrentUserId, "Copy me", Priority.High, null, ["a"]);
         _searchable.GetByIdAsync(source.Id, CurrentUserId, Arg.Any<CancellationToken>()).Returns(source);
 
         // Act

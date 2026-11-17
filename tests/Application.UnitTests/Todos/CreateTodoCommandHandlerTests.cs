@@ -15,7 +15,7 @@ public sealed class CreateTodoCommandHandlerTests : BaseHandlerTest
     public CreateTodoCommandHandlerTests()
     {
         _users.ExistsAsync(CurrentUserId, Arg.Any<CancellationToken>()).Returns(true);
-        _handler = new CreateTodoCommandHandler(_todoItems, _users, UnitOfWork, UserContext, DateTimeProvider);
+        _handler = new CreateTodoCommandHandler(_todoItems, _users, UnitOfWork, UserContext);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class CreateTodoCommandHandlerTests : BaseHandlerTest
         // Assert
         result.Success.ShouldBeTrue();
         _todoItems.Received(1).Add(Arg.Is<TodoItem>(t =>
-            t.Id == result.Data && t.UserId == CurrentUserId && t.Description == "Write tests" && t.CreatedAt == UtcNow));
+            t.Id == result.Data && t.UserId == CurrentUserId && t.Description == "Write tests"));
         await UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

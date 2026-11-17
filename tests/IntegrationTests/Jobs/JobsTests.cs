@@ -21,6 +21,7 @@ public sealed class JobsTests(IntegrationTestWebAppFactory factory) : BaseIntegr
 
         // Act
         await RegisterUserAsync(email);
+        await ProcessOutboxAsync();
 
         // Assert
         IMonitoringApi monitoring = Factory.Services.GetRequiredService<JobStorage>().GetMonitoringApi();

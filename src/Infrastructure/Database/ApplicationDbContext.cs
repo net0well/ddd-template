@@ -1,59 +1,42 @@
+using System.Diagnostics;
 using Domain.Todos;
 using Domain.Users;
-using Infrastructure.DomainEvents;
+using Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SharedKernel.Events;
 using SharedKernel.Notifications;
 using SharedKernel.Primitives;
+using SharedKernel.Time;
 
 namespace Infrastructure.Database;
 
-public sealed class ApplicationDbContext(
+internal sealed class ApplicationDbContext(
     DbContextOptions<ApplicationDbContext> options,
-    IDomainEventsDispatcher domainEventsDispatcher)
+    DomainEventSerializer domainEventSerializer,
+    IDateTimeProvider dateTimeProvider)
     : DbContext(options)
 {
-    // Events saved inside an explicit transaction wait here until the commit.
-    // Dispatch never uses the request's token: once the data is committed, a client that disconnects must not
-    // cancel its side effects.
-    private readonly List<IDomainEvent> _deferredDomainEvents = [];
-
     public DbSet<User> Users => Set<User>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<TodoItem> TodoItems => Set<TodoItem>();
 
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    internal DbSet<OutboxMessageConsumer> OutboxMessageConsumers => Set<OutboxMessageConsumer>();
+
+    /// <summary>
+    /// Saves the changes and, in the same transaction, the domain events they raised as outbox messages.
+    /// </summary>
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         EnsureNoInvalidAggregateIsSaved();
+        AddDomainEventsToOutbox();
 
-        List<IDomainEvent> domainEvents = ExtractDomainEvents();
-
-        int result = await base.SaveChangesAsync(cancellationToken);
-
-        if (Database.CurrentTransaction is null)
-        {
-            await domainEventsDispatcher.DispatchAsync(domainEvents, CancellationToken.None);
-        }
-        else
-        {
-            _deferredDomainEvents.AddRange(domainEvents);
-        }
-
-        return result;
+        return base.SaveChangesAsync(cancellationToken);
     }
-
-    internal async Task DispatchDeferredDomainEventsAsync()
-    {
-        IDomainEvent[] domainEvents = [.. _deferredDomainEvents];
-
-        _deferredDomainEvents.Clear();
-
-        await domainEventsDispatcher.DispatchAsync(domainEvents, CancellationToken.None);
-    }
-
-    internal void DiscardDeferredDomainEvents() => _deferredDomainEvents.Clear();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +46,24 @@ public sealed class ApplicationDbContext(
         modelBuilder.Ignore<Notification>();
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+
+        MapAuditStamps(modelBuilder);
+    }
+
+    // Get-only on the entity (the domain never sets them), so they are mapped here once for every IAuditable.
+    private static void MapAuditStamps(ModelBuilder modelBuilder)
+    {
+        foreach (Type auditable in modelBuilder.Model.GetEntityTypes()
+                     .Select(entityType => entityType.ClrType)
+                     .Where(type => type.IsAssignableTo(typeof(IAuditable))))
+        {
+            EntityTypeBuilder entity = modelBuilder.Entity(auditable);
+
+            entity.Property(nameof(IAuditable.CreatedOnUtc));
+            entity.Property(nameof(IAuditable.CreatedBy));
+            entity.Property(nameof(IAuditable.ModifiedOnUtc));
+            entity.Property(nameof(IAuditable.ModifiedBy));
+        }
     }
 
     // Safety net of the Notification pattern: a handler that forgot to check IsValid fails here
@@ -80,7 +81,7 @@ public sealed class ApplicationDbContext(
         }
     }
 
-    private List<IDomainEvent> ExtractDomainEvents()
+    private void AddDomainEventsToOutbox()
     {
         var domainEvents = new List<IDomainEvent>();
 
@@ -90,6 +91,26 @@ public sealed class ApplicationDbContext(
             aggregate.ClearDomainEvents();
         }
 
-        return domainEvents;
+        if (domainEvents.Count == 0)
+        {
+            return;
+        }
+
+        DateTime utcNow = dateTimeProvider.UtcNow;
+        string? traceParent = Activity.Current?.Id;
+
+        OutboxMessages.AddRange(domainEvents.Select(domainEvent =>
+        {
+            (string type, string content) = domainEventSerializer.Serialize(domainEvent);
+
+            return new OutboxMessage
+            {
+                Id = Guid.CreateVersion7(),
+                Type = type,
+                Content = content,
+                OccurredOnUtc = utcNow,
+                TraceParent = traceParent
+            };
+        }));
     }
 }

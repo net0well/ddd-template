@@ -2,6 +2,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Infrastructure.Outbox;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace IntegrationTests;
 
@@ -73,6 +75,20 @@ public abstract class BaseIntegrationTest
         AccessTokens tokens = await LoginAsync(email);
 
         return (userId, tokens);
+    }
+
+    /// <summary>Delivers the pending outbox messages now (the background processor is off in tests).</summary>
+    protected async Task ProcessOutboxAsync(IServiceProvider? services = null)
+    {
+        IServiceProvider provider = services ?? Factory.Services;
+        int claimed;
+
+        do
+        {
+            using IServiceScope scope = provider.CreateScope();
+            claimed = await scope.ServiceProvider.GetRequiredService<OutboxBatchProcessor>().ProcessAsync(CancellationToken.None);
+        }
+        while (claimed > 0);
     }
 
     protected void Authenticate(string accessToken)

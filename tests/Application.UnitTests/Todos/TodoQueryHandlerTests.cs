@@ -29,7 +29,7 @@ public sealed class TodoQueryHandlerTests : BaseHandlerTest
     public async Task GetById_Should_ServeTheSecondCallFromCache()
     {
         // Arrange
-        var todoItem = TodoItem.Create(CurrentUserId, "Cached", Priority.Low, null, [], UtcNow);
+        var todoItem = TodoItem.Create(CurrentUserId, "Cached", Priority.Low, null, []);
         _todoItems.GetByIdAsync(todoItem.Id, CurrentUserId, Arg.Any<CancellationToken>()).Returns(todoItem);
         var handler = new GetTodoByIdQueryHandler(_todoItems, UserContext, CreateCache());
 
@@ -47,7 +47,7 @@ public sealed class TodoQueryHandlerTests : BaseHandlerTest
     public async Task Get_Should_ScopeTheSearchToTheCurrentUser_AndMapThePage()
     {
         // Arrange
-        var todoItem = TodoItem.Create(CurrentUserId, "Listed", Priority.Top, null, [], UtcNow);
+        var todoItem = TodoItem.Create(CurrentUserId, "Listed", Priority.Top, null, []);
         _todoItems.SearchAsync(Arg.Any<TodoItemSearchCriteria>(), Arg.Any<CancellationToken>())
             .Returns(new PagedList<TodoItem>([todoItem], 1, 10, 1));
         var handler = new GetTodosQueryHandler(_todoItems, UserContext);

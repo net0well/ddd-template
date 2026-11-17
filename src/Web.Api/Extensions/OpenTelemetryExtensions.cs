@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Infrastructure.Outbox;
 using Jobs;
 using Npgsql;
 using OpenTelemetry;
@@ -21,7 +22,7 @@ internal static class OpenTelemetryExtensions
             .ConfigureResource(resource => resource.AddService(serviceName))
             .WithTracing(tracing => tracing
                 .SetSampler(new ParentBasedSampler(new DropParentlessClientSpansSampler()))
-                .AddSource(JobsDiagnostics.ActivitySourceName)
+                .AddSource(JobsDiagnostics.ActivitySourceName, OutboxDiagnostics.ActivitySourceName)
                 .AddAspNetCoreInstrumentation(options => options.Filter = httpContext =>
                     !httpContext.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase) &&
                     !httpContext.Request.Path.StartsWithSegments(jobsDashboardPath, StringComparison.OrdinalIgnoreCase))

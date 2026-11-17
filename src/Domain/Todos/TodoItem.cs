@@ -3,7 +3,7 @@ using SharedKernel.Primitives;
 
 namespace Domain.Todos;
 
-public sealed class TodoItem : AggregateRoot
+public sealed class TodoItem : AggregateRoot, IAuditable
 {
     public const int DescriptionMaxLength = 500;
 
@@ -23,11 +23,18 @@ public sealed class TodoItem : AggregateRoot
 
     public bool IsCompleted { get; private set; }
 
-    public DateTime CreatedAt { get; private set; }
-
     public DateTime? CompletedAt { get; private set; }
 
     public Priority Priority { get; private set; }
+
+    // Audit stamps are written by the persistence layer on save (see IAuditable).
+    public DateTime CreatedOnUtc { get; }
+
+    public Guid? CreatedBy { get; }
+
+    public DateTime? ModifiedOnUtc { get; }
+
+    public Guid? ModifiedBy { get; }
 
     /// <summary>
     /// Creates the item. Check <see cref="Notifiable.IsValid"/> before persisting it.
@@ -37,8 +44,7 @@ public sealed class TodoItem : AggregateRoot
         string? description,
         Priority priority,
         DateTime? dueDate,
-        IEnumerable<string>? labels,
-        DateTime utcNow)
+        IEnumerable<string>? labels)
     {
         var todoItem = new TodoItem
         {
@@ -46,8 +52,7 @@ public sealed class TodoItem : AggregateRoot
             Description = description?.Trim() ?? string.Empty,
             Priority = priority,
             DueDate = dueDate,
-            IsCompleted = false,
-            CreatedAt = utcNow
+            IsCompleted = false
         };
 
         todoItem._labels.AddRange(labels ?? []);
@@ -73,8 +78,8 @@ public sealed class TodoItem : AggregateRoot
     }
 
     /// <summary>A new, not completed item for the same user with the same content.</summary>
-    public TodoItem Copy(DateTime utcNow) =>
-        Create(UserId, Description, Priority, DueDate, Labels, utcNow);
+    public TodoItem Copy() =>
+        Create(UserId, Description, Priority, DueDate, Labels);
 
     public void Complete(DateTime utcNow)
     {

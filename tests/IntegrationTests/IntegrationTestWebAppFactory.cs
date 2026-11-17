@@ -33,6 +33,12 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         builder.UseSetting("Jobs:Dashboard:Username", DashboardUsername);
         builder.UseSetting("Jobs:Dashboard:Password", DashboardPassword);
 
+        // Tests deliver the outbox explicitly (BaseIntegrationTest.ProcessOutboxAsync), so they are deterministic.
+        builder.UseSetting("Outbox:Enabled", "false");
+
+        // Lower hashing cost: the suite logs in many times.
+        builder.UseSetting("PasswordHasher:Iterations", "100000");
+
         // Relax rate limiting so the test suite is not throttled.
         builder.UseSetting("RateLimiting:Global:PermitLimit", "100000");
         builder.UseSetting("RateLimiting:Authentication:PermitLimit", "100000");

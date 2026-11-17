@@ -26,11 +26,15 @@ try
 
     builder.Services.AddSwaggerWithAuth();
     builder.Services.AddObservability(builder.Configuration, builder.Environment.ApplicationName);
+    builder.Services.AddForwardedHeadersInternal(builder.Configuration);
     builder.Services.AddRateLimitingInternal(builder.Configuration);
     builder.Services.AddCorsInternal(builder.Configuration);
     builder.Services.AddEndpoints(Assembly.GetExecutingAssembly());
 
     WebApplication app = builder.Build();
+
+    // First: everything after it (HSTS, logs, rate limiter) must see the real client IP and scheme.
+    app.UseForwardedHeaders();
 
     // Migrations are not applied here: run `dotnet ef database update` (see README).
     if (app.Environment.IsDevelopment())

@@ -3,7 +3,6 @@ using Application.Abstractions.Data;
 using Application.Abstractions.Messaging;
 using Domain.Todos;
 using SharedKernel.Results;
-using SharedKernel.Time;
 
 namespace Application.Todos.Copy;
 
@@ -11,8 +10,7 @@ internal sealed class CopyTodoCommandHandler(
     ITodoItemsSearchableRepository todoItemsSearchable,
     ITodoItemsWritableRepository todoItemsWritable,
     IUnitOfWork unitOfWork,
-    IUserContext userContext,
-    IDateTimeProvider dateTimeProvider)
+    IUserContext userContext)
     : ICommandHandler<CopyTodoCommand, Guid>
 {
     public async Task<CommandResult<Guid>> Handle(CopyTodoCommand command, CancellationToken cancellationToken)
@@ -28,7 +26,7 @@ internal sealed class CopyTodoCommandHandler(
             return CommandResult.Fail<Guid>(TodoItemErrors.NotFound(command.TodoItemId));
         }
 
-        TodoItem copy = source.Copy(dateTimeProvider.UtcNow);
+        TodoItem copy = source.Copy();
 
         if (!copy.IsValid)
         {

@@ -35,7 +35,7 @@ internal sealed class TodoItemsSearchableRepository(ApplicationDbContext context
             TodoItemSortField.Description => OrderBy(query, t => t.Description, descending),
             TodoItemSortField.DueDate => OrderBy(query, t => t.DueDate, descending),
             TodoItemSortField.Priority => OrderBy(query, t => t.Priority, descending),
-            _ => OrderBy(query, t => t.CreatedAt, descending)
+            _ => OrderBy(query, t => t.CreatedOnUtc, descending)
         };
 
         // Tie-breaker so paging is stable when the sort key repeats.

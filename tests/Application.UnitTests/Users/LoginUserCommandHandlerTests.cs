@@ -12,6 +12,7 @@ public sealed class LoginUserCommandHandlerTests : BaseHandlerTest
     private const string Password = "Password123";
 
     private readonly IUsersSearchableRepository _users = Substitute.For<IUsersSearchableRepository>();
+    private readonly IUsersWritableRepository _writableUsers = Substitute.For<IUsersWritableRepository>();
     private readonly IRefreshTokensWritableRepository _refreshTokens = Substitute.For<IRefreshTokensWritableRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly ITokenProvider _tokenProvider = Substitute.For<ITokenProvider>();
@@ -25,7 +26,7 @@ public sealed class LoginUserCommandHandlerTests : BaseHandlerTest
         _tokenProvider.RefreshTokenLifetime.Returns(TimeSpan.FromDays(7));
 
         _handler = new LoginUserCommandHandler(
-            _users, _refreshTokens, UnitOfWork, _passwordHasher, _tokenProvider, DateTimeProvider);
+            _users, _writableUsers, _refreshTokens, UnitOfWork, _passwordHasher, _tokenProvider, DateTimeProvider);
     }
 
     [Fact]
@@ -46,7 +47,7 @@ public sealed class LoginUserCommandHandlerTests : BaseHandlerTest
     {
         // Arrange
         ExistingUser();
-        _passwordHasher.Verify(Arg.Any<string>(), Arg.Any<string?>()).Returns(false);
+        _passwordHasher.Verify(Arg.Any<string>(), Arg.Any<string?>()).Returns(PasswordVerificationResult.Failed);
 
         // Act
         CommandResult<AccessTokensResponse> result = await _handler.Handle(
@@ -63,7 +64,7 @@ public sealed class LoginUserCommandHandlerTests : BaseHandlerTest
     {
         // Arrange
         User user = ExistingUser();
-        _passwordHasher.Verify(Password, user.PasswordHash).Returns(true);
+        _passwordHasher.Verify(Password, user.PasswordHash).Returns(PasswordVerificationResult.Success);
 
         // Act
         CommandResult<AccessTokensResponse> result = await _handler.Handle(
@@ -74,6 +75,28 @@ public sealed class LoginUserCommandHandlerTests : BaseHandlerTest
         result.Data.ShouldBe(new AccessTokensResponse("access-token", "refresh-token"));
         _refreshTokens.Received(1).Add(Arg.Is<RefreshToken>(t =>
             t.UserId == user.Id && t.TokenHash == "refresh-token-hash" && t.ExpiresOnUtc == UtcNow.AddDays(7)));
+        await _writableUsers.DidNotReceiveWithAnyArgs().GetByIdAsync(Guid.Empty, CancellationToken.None);
+        await UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_Should_UpgradeTheStoredHash_WhenRehashIsNeeded()
+    {
+        // Arrange
+        User user = ExistingUser();
+        var tracked = User.Create(user.Email, "John", "Doe", user.PasswordHash);
+        _writableUsers.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(tracked);
+        _passwordHasher.Verify(Password, user.PasswordHash).Returns(PasswordVerificationResult.SuccessRehashNeeded);
+        _passwordHasher.Hash(Password).Returns("new-hash");
+
+        // Act
+        CommandResult<AccessTokensResponse> result = await _handler.Handle(
+            new LoginUserCommand("john@example.com", Password),
+            CancellationToken.None);
+
+        // Assert
+        result.Success.ShouldBeTrue();
+        tracked.PasswordHash.ShouldBe("new-hash");
         await UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

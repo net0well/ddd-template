@@ -11,7 +11,7 @@ public sealed class TodoItemTests
     public void Create_Should_BuildAValidItemWithAVersion7Id_AndRaiseCreatedEvent()
     {
         // Act
-        var todoItem = TodoItem.Create(UserId, "  Write tests  ", Priority.High, null, ["work"], UtcNow);
+        var todoItem = TodoItem.Create(UserId, "  Write tests  ", Priority.High, null, ["work"]);
 
         // Assert
         todoItem.IsValid.ShouldBeTrue();
@@ -28,7 +28,7 @@ public sealed class TodoItemTests
     public void Create_Should_NotifyAndRaiseNoEvent_WhenDescriptionIsMissing(string? description)
     {
         // Act
-        var todoItem = TodoItem.Create(UserId, description, Priority.Low, null, [], UtcNow);
+        var todoItem = TodoItem.Create(UserId, description, Priority.Low, null, []);
 
         // Assert
         todoItem.IsValid.ShouldBeFalse();
@@ -45,8 +45,7 @@ public sealed class TodoItemTests
             new string('a', TodoItem.DescriptionMaxLength + 1),
             (Priority)99,
             null,
-            [],
-            UtcNow);
+            []);
 
         // Assert
         todoItem.Notifications.ShouldBe(
@@ -121,7 +120,7 @@ public sealed class TodoItemTests
         original.Complete(UtcNow);
 
         // Act
-        TodoItem copy = original.Copy(UtcNow.AddDays(1));
+        TodoItem copy = original.Copy();
 
         // Assert
         copy.Id.ShouldNotBe(original.Id);
@@ -132,5 +131,5 @@ public sealed class TodoItemTests
     }
 
     private static TodoItem CreateValid() =>
-        TodoItem.Create(UserId, "Original", Priority.Medium, null, ["label"], UtcNow);
+        TodoItem.Create(UserId, "Original", Priority.Medium, null, ["label"]);
 }

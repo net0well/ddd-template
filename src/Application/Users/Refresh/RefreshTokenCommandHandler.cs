@@ -56,7 +56,15 @@ internal sealed class RefreshTokenCommandHandler(
             utcNow,
             tokenProvider.RefreshTokenLifetime));
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DataConflictException)
+        {
+            // Another request rotated the same token first (e.g. two browser tabs refreshing together).
+            return CommandResult.Fail<AccessTokensResponse>(UserErrors.RefreshTokenConflict);
+        }
 
         return CommandResult.Ok(new AccessTokensResponse(tokenProvider.Create(user), newRefreshToken));
     }

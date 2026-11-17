@@ -67,7 +67,7 @@ public sealed class CompleteTodoCommandHandlerTests : BaseHandlerTest
 
     private TodoItem ExistingTodo()
     {
-        var todoItem = TodoItem.Create(CurrentUserId, "Finish me", Priority.Normal, null, [], UtcNow);
+        var todoItem = TodoItem.Create(CurrentUserId, "Finish me", Priority.Normal, null, []);
 
         _todoItems.GetByIdAsync(todoItem.Id, CurrentUserId, Arg.Any<CancellationToken>()).Returns(todoItem);
 

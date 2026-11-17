@@ -3,12 +3,14 @@ using Application.Abstractions.DependencyInjection;
 using Infrastructure.Authentication;
 using Infrastructure.Authorization;
 using Infrastructure.Database;
+using Infrastructure.Outbox;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -26,6 +28,7 @@ public static class DependencyInjection
             .AddInjectableServices(typeof(DependencyInjection).Assembly)
             .AddCaching()
             .AddDatabase(configuration)
+            .AddOutbox(configuration)
             .AddHealthChecks(configuration)
             .AddAuthenticationInternal()
             .AddAuthorizationInternal();
@@ -44,10 +47,27 @@ public static class DependencyInjection
         string? connectionString = configuration.GetConnectionString("Database");
 
         services.AddDbContext<ApplicationDbContext>(
-            options => options
+            (serviceProvider, options) => options
                 .UseNpgsql(connectionString, npgsqlOptions =>
                     npgsqlOptions.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Default))
-                .UseSnakeCaseNamingConvention());
+                .UseSnakeCaseNamingConvention()
+                .AddInterceptors(serviceProvider.GetRequiredService<AuditingInterceptor>()));
+
+        return services;
+    }
+
+    private static IServiceCollection AddOutbox(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<OutboxOptions>()
+            .BindConfiguration(OutboxOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // Whether this process delivers messages is decided before the container exists, so it is read eagerly.
+        if (configuration.GetSection(OutboxOptions.SectionName).Get<OutboxOptions>()?.Enabled ?? true)
+        {
+            services.AddHostedService<OutboxProcessor>();
+        }
 
         return services;
     }
@@ -56,7 +76,8 @@ public static class DependencyInjection
     {
         services
             .AddHealthChecks()
-            .AddNpgSql(configuration.GetConnectionString("Database")!, name: "postgres", tags: [HealthCheckReadyTag]);
+            .AddNpgSql(configuration.GetConnectionString("Database")!, name: "postgres", tags: [HealthCheckReadyTag])
+            .AddCheck<OutboxHealthCheck>("outbox", failureStatus: HealthStatus.Degraded);
 
         return services;
     }
@@ -65,6 +86,11 @@ public static class DependencyInjection
     {
         services.AddOptions<JwtOptions>()
             .BindConfiguration(JwtOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<PasswordHasherOptions>()
+            .BindConfiguration(PasswordHasherOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 

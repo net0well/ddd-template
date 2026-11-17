@@ -14,13 +14,14 @@ namespace IntegrationTests.Persistence;
 public sealed class UnitOfWorkTests(IntegrationTestWebAppFactory factory) : BaseIntegrationTest(factory)
 {
     [Fact]
-    public async Task ExecuteInTransaction_Should_RollBackAndDiscardEvents_WhenTheResultFails()
+    public async Task ExecuteInTransaction_Should_RollBackTheChangesAndTheirEvents_WhenTheResultFails()
     {
         // Arrange
         string email = UniqueEmail();
 
         // Act
         CommandResult result = await RegisterInTransactionAsync(email, fail: true);
+        await ProcessOutboxAsync();
 
         // Assert
         result.Success.ShouldBeFalse();
@@ -29,13 +30,14 @@ public sealed class UnitOfWorkTests(IntegrationTestWebAppFactory factory) : Base
     }
 
     [Fact]
-    public async Task ExecuteInTransaction_Should_CommitAndDispatchEvents_WhenTheResultSucceeds()
+    public async Task ExecuteInTransaction_Should_CommitTheChangesAndTheirEvents_WhenTheResultSucceeds()
     {
         // Arrange
         string email = UniqueEmail();
 
         // Act
         CommandResult result = await RegisterInTransactionAsync(email, fail: false);
+        await ProcessOutboxAsync();
 
         // Assert
         result.Success.ShouldBeTrue();
@@ -49,7 +51,7 @@ public sealed class UnitOfWorkTests(IntegrationTestWebAppFactory factory) : Base
         // Arrange
         using IServiceScope scope = Factory.Services.CreateScope();
         IUnitOfWork unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var invalid = TodoItem.Create(Guid.CreateVersion7(), string.Empty, Priority.Low, null, [], DateTime.UtcNow);
+        var invalid = TodoItem.Create(Guid.CreateVersion7(), string.Empty, Priority.Low, null, []);
         scope.ServiceProvider.GetRequiredService<ITodoItemsWritableRepository>().Add(invalid);
 
         // Act & Assert

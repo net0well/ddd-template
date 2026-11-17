@@ -17,6 +17,10 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
 
         builder.HasIndex(refreshToken => refreshToken.TokenHash).IsUnique();
 
+        // Optimistic concurrency on PostgreSQL's xmin system column: two concurrent rotations of the same
+        // token cannot both succeed.
+        builder.Property<uint>("Version").HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
+
         builder.HasOne<User>().WithMany().HasForeignKey(refreshToken => refreshToken.UserId);
     }
 }

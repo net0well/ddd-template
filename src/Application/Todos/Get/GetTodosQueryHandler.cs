@@ -35,7 +35,7 @@ internal sealed class GetTodosQueryHandler(ITodoItemsSearchableRepository todoIt
         Labels = [.. todoItem.Labels],
         Priority = todoItem.Priority,
         IsCompleted = todoItem.IsCompleted,
-        CreatedAt = todoItem.CreatedAt,
+        CreatedAt = todoItem.CreatedOnUtc,
         CompletedAt = todoItem.CompletedAt
     };
 }
