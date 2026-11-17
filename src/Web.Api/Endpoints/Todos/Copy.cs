@@ -20,7 +20,11 @@ internal sealed class Copy : IEndpoint
         })
         .WithTags(Tags.Todos)
         .WithIdempotency()
-        .ProducesCommandResult<Guid>()
+        .WithName("CopyTodo")
+        .WithSummary("Copy a to-do item")
+        .WithDescription("Creates a new, not completed item with the same content.")
+        .ProducesCommandResult<Guid>(StatusCodes.Status201Created)
+        .ProducesErrors(StatusCodes.Status404NotFound)
         .RequireAuthorization();
     }
 }

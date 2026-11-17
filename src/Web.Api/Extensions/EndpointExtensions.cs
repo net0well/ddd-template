@@ -41,17 +41,33 @@ public static class EndpointExtensions
         app.RequireAuthorization(permission);
 
     public static RouteHandlerBuilder WithIdempotency(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter<IdempotencyFilter>();
-
-    /// <summary>Documents the response envelope in Swagger (success and failure).</summary>
-    public static RouteHandlerBuilder ProducesCommandResult<TData>(this RouteHandlerBuilder builder) =>
         builder
-            .Produces<CommandResult<TData>>(StatusCodes.Status200OK)
-            .Produces<CommandResult>(StatusCodes.Status400BadRequest);
+            .AddEndpointFilter<IdempotencyFilter>()
+            .WithMetadata(new IdempotentEndpointMetadata());
 
-    /// <inheritdoc cref="ProducesCommandResult{TData}"/>
+    /// <summary>Documents the success response (envelope with <typeparamref name="TData"/> in <c>data</c>).</summary>
+    public static RouteHandlerBuilder ProducesCommandResult<TData>(
+        this RouteHandlerBuilder builder,
+        int statusCode = StatusCodes.Status200OK) =>
+        builder.Produces<CommandResult<TData>>(statusCode);
+
+    /// <summary>Documents the success response of an operation without a value.</summary>
     public static RouteHandlerBuilder ProducesCommandResult(this RouteHandlerBuilder builder) =>
-        builder
-            .Produces<CommandResult>(StatusCodes.Status200OK)
-            .Produces<CommandResult>(StatusCodes.Status400BadRequest);
+        builder.Produces<CommandResult>(StatusCodes.Status200OK);
+
+    /// <summary>
+    /// Documents the failures specific to the endpoint. 401/403, 409 (idempotency), 429 and 500 are added
+    /// automatically from the endpoint's metadata.
+    /// </summary>
+    public static RouteHandlerBuilder ProducesErrors(this RouteHandlerBuilder builder, params int[] statusCodes)
+    {
+        ArgumentNullException.ThrowIfNull(statusCodes);
+
+        foreach (int statusCode in statusCodes)
+        {
+            builder.Produces<CommandResult>(statusCode);
+        }
+
+        return builder;
+    }
 }

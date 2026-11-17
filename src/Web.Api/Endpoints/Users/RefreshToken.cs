@@ -25,7 +25,11 @@ internal sealed class RefreshToken : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Users)
+        .WithName("RefreshToken")
+        .WithSummary("Exchange a refresh token")
+        .WithDescription("Rotates the refresh token: the old one stops working, and reusing it revokes every session of the user.")
         .ProducesCommandResult<AccessTokensResponse>()
+        .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status401Unauthorized)
         .AllowAnonymous()
         .RequireRateLimiting(RateLimitingPolicies.Authentication);
     }

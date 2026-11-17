@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Todos.GetById;
 using SharedKernel.Results;
 using Web.Api.Extensions;
@@ -19,7 +19,10 @@ internal sealed class GetById : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Todos)
+        .WithName("GetTodoById")
+        .WithSummary("Get a to-do item")
         .ProducesCommandResult<TodoResponse>()
+        .ProducesErrors(StatusCodes.Status404NotFound)
         .RequireAuthorization();
     }
 }

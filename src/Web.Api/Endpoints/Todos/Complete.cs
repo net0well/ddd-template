@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Todos.Complete;
 using SharedKernel.Results;
 using Web.Api.Extensions;
@@ -19,7 +19,10 @@ internal sealed class Complete : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Todos)
+        .WithName("CompleteTodo")
+        .WithSummary("Mark a to-do item as completed")
         .ProducesCommandResult()
+        .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
         .RequireAuthorization();
     }
 }

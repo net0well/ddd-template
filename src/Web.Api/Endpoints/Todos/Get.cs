@@ -28,7 +28,11 @@ internal sealed class Get : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Todos)
+        .WithName("GetTodos")
+        .WithSummary("List the current user's to-do items")
+        .WithDescription("Paged, newest first by default. `search` matches the description (case-insensitive); `sortColumn`: createdAt, description, dueDate or priority; `sortOrder`: asc or desc; `page` starts at 1; `pageSize` 1–100 (default 10).")
         .ProducesCommandResult<PagedList<TodoResponse>>()
+        .ProducesErrors(StatusCodes.Status400BadRequest)
         .RequireAuthorization();
     }
 }

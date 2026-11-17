@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Todos.Create;
 using Domain.Todos;
 using SharedKernel.Results;
@@ -25,7 +25,11 @@ internal sealed class Create : IEndpoint
         })
         .WithTags(Tags.Todos)
         .WithIdempotency()
-        .ProducesCommandResult<Guid>()
+        .WithName("CreateTodo")
+        .WithSummary("Create a to-do item")
+        .WithDescription("Creates an item for the current user. `labels`: up to 10, 50 characters each; `dueDate` cannot be in the past.")
+        .ProducesCommandResult<Guid>(StatusCodes.Status201Created)
+        .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
         .RequireAuthorization();
     }
 }

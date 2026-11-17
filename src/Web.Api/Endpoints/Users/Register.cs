@@ -24,7 +24,11 @@ internal sealed class Register : IEndpoint
             return result.ToHttpResult(StatusCodes.Status201Created);
         })
         .WithTags(Tags.Users)
-        .ProducesCommandResult<Guid>()
+        .WithName("RegisterUser")
+        .WithSummary("Register a user")
+        .WithDescription("Creates a `Member` and sends a welcome e-mail in the background. Password: 8–128 characters.")
+        .ProducesCommandResult<Guid>(StatusCodes.Status201Created)
+        .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict)
         .AllowAnonymous()
         .RequireRateLimiting(RateLimitingPolicies.Authentication);
     }

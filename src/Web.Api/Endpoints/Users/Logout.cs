@@ -18,6 +18,9 @@ internal sealed class Logout : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Users)
+        .WithName("Logout")
+        .WithSummary("Log out everywhere")
+        .WithDescription("Revokes every refresh token of the current user. Access tokens already issued expire on their own.")
         .ProducesCommandResult()
         .RequireAuthorization();
     }

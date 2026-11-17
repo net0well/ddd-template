@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 
 namespace IntegrationTests.Api;
 
@@ -12,10 +13,27 @@ public sealed class ApiDocumentationTests(IntegrationTestWebAppFactory factory) 
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        string document = await response.Content.ReadAsStringAsync();
-        document.ShouldContain("\"bearer\"");
-        document.ShouldContain("CommandResultOfGuid");
-        document.ShouldContain("/todos/{id}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        JsonElement createTodo = paths.GetProperty("/todos").GetProperty("post");
+        createTodo.GetProperty("operationId").GetString().ShouldBe("CreateTodo");
+        createTodo.GetProperty("responses").EnumerateObject().Select(r => r.Name)
+            .ShouldBe(["201", "400", "404", "401", "409", "500"], ignoreOrder: true);
+        createTodo.GetProperty("security").GetArrayLength().ShouldBe(1);
+        createTodo.GetProperty("parameters").EnumerateArray()
+            .ShouldContain(p => p.GetProperty("name").GetString() == "Idempotency-Key");
+
+        JsonElement login = paths.GetProperty("/users/login").GetProperty("post");
+        login.TryGetProperty("security", out _).ShouldBeFalse();
+        login.GetProperty("responses").TryGetProperty("429", out _).ShouldBeTrue();
+
+        paths.GetProperty("/users/{userId}").GetProperty("get").GetProperty("responses")
+            .TryGetProperty("403", out _).ShouldBeTrue();
+
+        document.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("CommandResultOfGuid")
+            .GetProperty("properties").EnumerateObject().Select(p => p.Name)
+            .ShouldBe(["success", "data", "notifications", "traceId"]);
     }
 
     [Fact]

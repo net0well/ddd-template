@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Users.GetById;
 using Domain.Users;
 using SharedKernel.Results;
@@ -20,7 +20,11 @@ internal sealed class GetById : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Users)
+        .WithName("GetUserById")
+        .WithSummary("Get a user profile")
+        .WithDescription("Only your own profile; requires the `users:access` permission.")
         .ProducesCommandResult<UserResponse>()
+        .ProducesErrors(StatusCodes.Status404NotFound)
         .HasPermission(Permissions.UsersAccess);
     }
 }

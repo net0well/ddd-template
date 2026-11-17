@@ -22,7 +22,10 @@ internal sealed class Update : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Todos)
+        .WithName("UpdateTodo")
+        .WithSummary("Change the description of a to-do item")
         .ProducesCommandResult()
+        .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
         .RequireAuthorization();
     }
 }

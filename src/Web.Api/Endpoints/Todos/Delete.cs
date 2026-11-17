@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Todos.Delete;
 using SharedKernel.Results;
 using Web.Api.Extensions;
@@ -19,7 +19,10 @@ internal sealed class Delete : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Todos)
+        .WithName("DeleteTodo")
+        .WithSummary("Delete a to-do item")
         .ProducesCommandResult()
+        .ProducesErrors(StatusCodes.Status404NotFound)
         .RequireAuthorization();
     }
 }

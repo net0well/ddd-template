@@ -25,7 +25,11 @@ internal sealed class Login : IEndpoint
             return result.ToHttpResult();
         })
         .WithTags(Tags.Users)
+        .WithName("Login")
+        .WithSummary("Log in")
+        .WithDescription("Returns a short-lived access token (JWT) and a refresh token.")
         .ProducesCommandResult<AccessTokensResponse>()
+        .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status401Unauthorized)
         .AllowAnonymous()
         .RequireRateLimiting(RateLimitingPolicies.Authentication);
     }
