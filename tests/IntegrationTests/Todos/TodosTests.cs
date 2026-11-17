@@ -22,7 +22,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task GetTodo_Should_ReturnUnauthorized_WhenTokenIsMissing()
     {
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync($"todos/{Guid.NewGuid()}");
+        HttpResponseMessage response = await HttpClient.GetAsync($"todos/{Guid.NewGuid()}", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -38,14 +38,14 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
         // Act
         HttpResponseMessage createResponse = await HttpClient.PostAsJsonAsync(
             "todos",
-            new { description = "Integration test todo", labels = IntegrationLabels, priority = "High" });
+            new { description = "Integration test todo", labels = IntegrationLabels, priority = "High" }, TestContext.Current.CancellationToken);
 
         // Assert
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid todoId = await ReadDataAsync<Guid>(createResponse);
         todoId.Version.ShouldBe(7);
 
-        TodoDto todo = await ReadDataAsync<TodoDto>(await HttpClient.GetAsync($"todos/{todoId}"));
+        TodoDto todo = await ReadDataAsync<TodoDto>(await HttpClient.GetAsync($"todos/{todoId}", TestContext.Current.CancellationToken));
         todo.Id.ShouldBe(todoId);
         todo.UserId.ShouldBe(userId);
         todo.Description.ShouldBe("Integration test todo");
@@ -61,7 +61,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
         Authenticate(tokens.AccessToken);
 
         // Act
-        HttpResponseMessage response = await HttpClient.PostAsJsonAsync("todos", new { description = "", priority = 1 });
+        HttpResponseMessage response = await HttpClient.PostAsJsonAsync("todos", new { description = "", priority = 1 }, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -80,7 +80,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
         using var malformedJson = new StringContent("{ not json", Encoding.UTF8, "application/json");
 
         // Act
-        HttpResponseMessage response = await HttpClient.PostAsync("todos", malformedJson);
+        HttpResponseMessage response = await HttpClient.PostAsync("todos", malformedJson, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -96,15 +96,15 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
         Guid todoId = await CreateTodoAsync("Todo to complete");
 
         // Act
-        HttpResponseMessage first = await HttpClient.PutAsync($"todos/{todoId}/complete", null);
-        HttpResponseMessage second = await HttpClient.PutAsync($"todos/{todoId}/complete", null);
+        HttpResponseMessage first = await HttpClient.PutAsync($"todos/{todoId}/complete", null, TestContext.Current.CancellationToken);
+        HttpResponseMessage second = await HttpClient.PutAsync($"todos/{todoId}/complete", null, TestContext.Current.CancellationToken);
 
         // Assert
         first.StatusCode.ShouldBe(HttpStatusCode.OK);
         second.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await ReadEnvelopeAsync<object>(second)).Notifications.ShouldHaveSingleItem().Key.ShouldBe("TodoItems.AlreadyCompleted");
 
-        TodoDto todo = await ReadDataAsync<TodoDto>(await HttpClient.GetAsync($"todos/{todoId}"));
+        TodoDto todo = await ReadDataAsync<TodoDto>(await HttpClient.GetAsync($"todos/{todoId}", TestContext.Current.CancellationToken));
         todo.IsCompleted.ShouldBeTrue();
     }
 
@@ -120,7 +120,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
         Authenticate(stranger.AccessToken);
 
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync($"todos/{todoId}");
+        HttpResponseMessage response = await HttpClient.GetAsync($"todos/{todoId}", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -170,7 +170,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
         await CreateTodoAsync("Paged todo 2");
 
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync("todos?page=1&pageSize=1&search=paged&sortColumn=description");
+        HttpResponseMessage response = await HttpClient.GetAsync("todos?page=1&pageSize=1&search=paged&sortColumn=description", TestContext.Current.CancellationToken);
 
         // Assert
         response.EnsureSuccessStatusCode();
@@ -188,7 +188,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
         Authenticate(tokens.AccessToken);
 
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync("todos?page=0&pageSize=1000");
+        HttpResponseMessage response = await HttpClient.GetAsync("todos?page=0&pageSize=1000", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);

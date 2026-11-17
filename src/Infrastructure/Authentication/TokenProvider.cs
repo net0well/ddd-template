@@ -1,4 +1,4 @@
-﻿using System.Buffers.Text;
+using System.Buffers.Text;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,11 +8,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using SharedKernel.DependencyInjection;
-using SharedKernel.Time;
 
 namespace Infrastructure.Authentication;
 
-internal sealed class TokenProvider(IOptions<JwtOptions> options, IDateTimeProvider dateTimeProvider)
+internal sealed class TokenProvider(IOptions<JwtOptions> options, TimeProvider timeProvider)
     : ITokenProvider, IInjectSingleton
 {
     private const int RefreshTokenSizeInBytes = 64;
@@ -27,11 +26,13 @@ internal sealed class TokenProvider(IOptions<JwtOptions> options, IDateTimeProvi
 
     public TimeSpan RefreshTokenLifetime => TimeSpan.FromDays(_options.RefreshTokenExpirationInDays);
 
+    public TimeSpan RefreshTokenReuseGracePeriod => TimeSpan.FromSeconds(_options.RefreshTokenReuseGracePeriodInSeconds);
+
     public string Create(User user)
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        DateTime utcNow = dateTimeProvider.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

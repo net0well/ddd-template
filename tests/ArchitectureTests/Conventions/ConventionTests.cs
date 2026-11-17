@@ -6,6 +6,8 @@ using SharedKernel.Persistence;
 using SharedKernel.Primitives;
 using Shouldly;
 
+using TestResult = NetArchTest.Rules.TestResult;
+
 namespace ArchitectureTests.Conventions;
 
 public class ConventionTests : BaseTest

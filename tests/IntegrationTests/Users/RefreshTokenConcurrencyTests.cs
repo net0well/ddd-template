@@ -22,7 +22,7 @@ public sealed class RefreshTokenConcurrencyTests(IntegrationTestWebAppFactory fa
         await RotateAsync(second, hash);
 
         // Act
-        await first.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync();
+        await first.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Assert
         await Should.ThrowAsync<DataConflictException>(
@@ -39,12 +39,11 @@ public sealed class RefreshTokenConcurrencyTests(IntegrationTestWebAppFactory fa
         HttpResponseMessage[] responses = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ =>
             HttpClient.PostAsJsonAsync("users/refresh-token", new { refreshToken = tokens.RefreshToken })));
 
-        // Assert: the losers either lost the race (409) or arrived after the rotation (reuse, 401)
+        // Assert: the losers lost the race or arrived just after the rotation; both are a 409 that keeps the session
         responses.Count(response => response.StatusCode == HttpStatusCode.OK).ShouldBe(1);
         responses
             .Where(response => response.StatusCode != HttpStatusCode.OK)
-            .ShouldAllBe(response =>
-                response.StatusCode == HttpStatusCode.Conflict || response.StatusCode == HttpStatusCode.Unauthorized);
+            .ShouldAllBe(response => response.StatusCode == HttpStatusCode.Conflict);
     }
 
     private static async Task RotateAsync(IServiceScope scope, string hash)

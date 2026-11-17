@@ -2,7 +2,7 @@ using Application.Abstractions.Authentication;
 using Application.Abstractions.Data;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
-using SharedKernel.Time;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Application.UnitTests.Abstractions;
 
@@ -16,7 +16,6 @@ public abstract class BaseHandlerTest
 
     protected BaseHandlerTest()
     {
-        DateTimeProvider.UtcNow.Returns(UtcNow);
         UserContext.UserId.Returns(CurrentUserId);
     }
 
@@ -24,7 +23,8 @@ public abstract class BaseHandlerTest
 
     protected IUnitOfWork UnitOfWork { get; } = Substitute.For<IUnitOfWork>();
 
-    protected IDateTimeProvider DateTimeProvider { get; } = Substitute.For<IDateTimeProvider>();
+    /// <summary>Frozen at <see cref="UtcNow"/>; <c>Clock.Advance(...)</c> moves time forward.</summary>
+    protected FakeTimeProvider Clock { get; } = new(new DateTimeOffset(UtcNow));
 
     protected IUserContext UserContext { get; } = Substitute.For<IUserContext>();
 

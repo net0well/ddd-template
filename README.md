@@ -11,7 +11,7 @@ Dependencies point inward: `Web.Api → Infrastructure, Jobs → Application →
 
 | Project | Contains |
 |---|---|
-| **SharedKernel** | Building blocks with no dependencies: `Primitives` (`Entity`, `AggregateRoot`, `ValueObject` — UUID v7 ids — and `IAuditable`), `Notifications` (`Notification`, `Notifiable`), `Results` (`CommandResult`), `Pagination` (`PagedList`), `Events`, `Persistence` (repository markers), `DependencyInjection` (`IInjectScoped` / `IInjectTransient` / `IInjectSingleton`), `Time`. |
+| **SharedKernel** | Building blocks with no dependencies: `Primitives` (`Entity`, `AggregateRoot`, `ValueObject` — UUID v7 ids — and `IAuditable`), `Notifications` (`Notification`, `Notifiable`), `Results` (`CommandResult`), `Pagination` (`PagedList`), `Events`, `Persistence` (repository markers), `DependencyInjection` (`IInjectScoped` / `IInjectTransient` / `IInjectSingleton`). Time comes from .NET's `TimeProvider` (`FakeTimeProvider` in tests). |
 | **Domain** | Aggregates with behavior and private setters, value objects (`Email`), error catalogs, domain events, repository interfaces (`I{Aggregates}SearchableRepository` / `I{Aggregates}WritableRepository`), domain services (`UserRegistrationService`). |
 | **Application** | One folder per use case (command/query, handler, validator, response). Pipeline decorators: logging → validation → transaction. `IUnitOfWork`, `IJobScheduler`, auth abstractions. No EF Core, Hangfire or Serilog. |
 | **Infrastructure** | EF Core + PostgreSQL (snake_case), repository implementations, `UnitOfWork`, migrations, transactional outbox, auditing interceptor, JWT + refresh tokens, versioned password hashing, permissions, HybridCache. |
@@ -216,7 +216,7 @@ scale separately.
 ## Tests
 
 ```bash
-dotnet test CleanArchitecture.slnx    # Docker must be running (Testcontainers)
+dotnet test --solution CleanArchitecture.slnx    # Docker must be running (Testcontainers)
 ```
 
 - `Domain.UnitTests` — aggregates, value objects, domain services, `CommandResult`, `PagedList`.
@@ -225,3 +225,7 @@ dotnet test CleanArchitecture.slnx    # Docker must be running (Testcontainers)
   outbox (delivery, retries, dead letters, concurrent processors, cleanup), auditing, refresh-token concurrency,
   password hashing, dependency-injection markers. The outbox processor is off in tests; they deliver it explicitly.
 - `ArchitectureTests` — layer dependencies and conventions.
+
+The tests use xUnit v3 on Microsoft.Testing.Platform (`global.json` selects it for `dotnet test`); each test
+project is also an executable that can be run directly. Tests pass `TestContext.Current.CancellationToken` to
+async calls, so a cancelled or timed-out run stops at once. Time-dependent unit tests use `FakeTimeProvider`.

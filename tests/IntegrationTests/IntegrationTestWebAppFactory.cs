@@ -44,7 +44,7 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         builder.UseSetting("RateLimiting:Authentication:PermitLimit", "100000");
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _dbContainer.StartAsync();
 
@@ -54,7 +54,7 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         await dbContext.Database.MigrateAsync();
     }
 
-    public new async Task DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
         await _dbContainer.DisposeAsync();
         await base.DisposeAsync();

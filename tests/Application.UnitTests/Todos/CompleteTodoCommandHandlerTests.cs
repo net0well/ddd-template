@@ -15,7 +15,7 @@ public sealed class CompleteTodoCommandHandlerTests : BaseHandlerTest
 
     public CompleteTodoCommandHandlerTests()
     {
-        _handler = new CompleteTodoCommandHandler(_todoItems, UnitOfWork, UserContext, DateTimeProvider, _cache);
+        _handler = new CompleteTodoCommandHandler(_todoItems, UnitOfWork, UserContext, Clock, _cache);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class CompleteTodoCommandHandlerTests : BaseHandlerTest
 
         // Assert
         result.Notifications.ShouldHaveSingleItem().ShouldBe(TodoItemErrors.AlreadyCompleted(todoItem.Id));
-        await UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class CompleteTodoCommandHandlerTests : BaseHandlerTest
         // Arrange
         TodoItem todoItem = ExistingTodo();
         string cacheKey = TodoCacheKeys.ById(CurrentUserId, todoItem.Id);
-        await _cache.SetAsync(cacheKey, "cached");
+        await _cache.SetAsync(cacheKey, "cached", cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         CommandResult result = await _handler.Handle(new CompleteTodoCommand(todoItem.Id), CancellationToken.None);
@@ -62,7 +62,7 @@ public sealed class CompleteTodoCommandHandlerTests : BaseHandlerTest
         todoItem.IsCompleted.ShouldBeTrue();
         todoItem.DomainEvents.ShouldContain(new TodoItemCompletedDomainEvent(todoItem.Id));
         await UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        (await _cache.GetOrCreateAsync(cacheKey, _ => ValueTask.FromResult("recomputed"))).ShouldBe("recomputed");
+        (await _cache.GetOrCreateAsync(cacheKey, _ => ValueTask.FromResult("recomputed"), cancellationToken: TestContext.Current.CancellationToken)).ShouldBe("recomputed");
     }
 
     private TodoItem ExistingTodo()

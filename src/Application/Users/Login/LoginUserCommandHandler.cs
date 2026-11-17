@@ -3,7 +3,6 @@ using Application.Abstractions.Data;
 using Application.Abstractions.Messaging;
 using Domain.Users;
 using SharedKernel.Results;
-using SharedKernel.Time;
 
 namespace Application.Users.Login;
 
@@ -14,7 +13,7 @@ internal sealed class LoginUserCommandHandler(
     IUnitOfWork unitOfWork,
     IPasswordHasher passwordHasher,
     ITokenProvider tokenProvider,
-    IDateTimeProvider dateTimeProvider) : ICommandHandler<LoginUserCommand, AccessTokensResponse>
+    TimeProvider timeProvider) : ICommandHandler<LoginUserCommand, AccessTokensResponse>
 {
     public async Task<CommandResult<AccessTokensResponse>> Handle(LoginUserCommand command, CancellationToken cancellationToken)
     {
@@ -42,7 +41,7 @@ internal sealed class LoginUserCommandHandler(
         refreshTokens.Add(RefreshToken.Issue(
             user.Id,
             tokenProvider.HashRefreshToken(refreshToken),
-            dateTimeProvider.UtcNow,
+            timeProvider.GetUtcNow().UtcDateTime,
             tokenProvider.RefreshTokenLifetime));
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

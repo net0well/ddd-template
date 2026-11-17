@@ -37,7 +37,7 @@ public sealed class JobsTests(IntegrationTestWebAppFactory factory) : BaseIntegr
     public async Task Dashboard_Should_AskForCredentials_WhenTheyAreMissingOrWrong()
     {
         // Act
-        HttpResponseMessage anonymous = await HttpClient.GetAsync("hangfire");
+        HttpResponseMessage anonymous = await HttpClient.GetAsync("hangfire", TestContext.Current.CancellationToken);
         HttpResponseMessage wrong = await GetDashboardAsync(IntegrationTestWebAppFactory.DashboardUsername, "wrong-password");
 
         // Assert

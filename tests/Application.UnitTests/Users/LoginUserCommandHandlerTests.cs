@@ -26,7 +26,7 @@ public sealed class LoginUserCommandHandlerTests : BaseHandlerTest
         _tokenProvider.RefreshTokenLifetime.Returns(TimeSpan.FromDays(7));
 
         _handler = new LoginUserCommandHandler(
-            _users, _writableUsers, _refreshTokens, UnitOfWork, _passwordHasher, _tokenProvider, DateTimeProvider);
+            _users, _writableUsers, _refreshTokens, UnitOfWork, _passwordHasher, _tokenProvider, Clock);
     }
 
     [Fact]

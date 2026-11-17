@@ -26,7 +26,7 @@ public sealed class DecoratorTests
         Notification notification = result.Notifications.ShouldHaveSingleItem();
         notification.Key.ShouldBe(nameof(PlainCommand.Name));
         notification.Type.ShouldBe(NotificationType.Validation);
-        await _plainHandler.DidNotReceiveWithAnyArgs().Handle(default!, default);
+        await _plainHandler.DidNotReceiveWithAnyArgs().Handle(default!, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public sealed class DecoratorTests
         await decorator.Handle(new PlainCommand("ok"), CancellationToken.None);
 
         // Assert
-        await _unitOfWork.DidNotReceiveWithAnyArgs().ExecuteInTransactionAsync<CommandResult>(default!, default);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().ExecuteInTransactionAsync<CommandResult>(default!, TestContext.Current.CancellationToken);
     }
 
     [Fact]

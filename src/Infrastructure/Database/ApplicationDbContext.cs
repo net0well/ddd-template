@@ -7,14 +7,13 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SharedKernel.Events;
 using SharedKernel.Notifications;
 using SharedKernel.Primitives;
-using SharedKernel.Time;
 
 namespace Infrastructure.Database;
 
 internal sealed class ApplicationDbContext(
     DbContextOptions<ApplicationDbContext> options,
     DomainEventSerializer domainEventSerializer,
-    IDateTimeProvider dateTimeProvider)
+    TimeProvider timeProvider)
     : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
@@ -96,7 +95,7 @@ internal sealed class ApplicationDbContext(
             return;
         }
 
-        DateTime utcNow = dateTimeProvider.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         string? traceParent = Activity.Current?.Id;
 
         OutboxMessages.AddRange(domainEvents.Select(domainEvent =>

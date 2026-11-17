@@ -1,6 +1,5 @@
 using Domain.Todos;
 using FluentValidation;
-using SharedKernel.Time;
 
 namespace Application.Todos.Create;
 
@@ -9,12 +8,12 @@ internal sealed class CreateTodoCommandValidator : AbstractValidator<CreateTodoC
     public const int MaxLabels = 10;
     public const int LabelMaxLength = 50;
 
-    public CreateTodoCommandValidator(IDateTimeProvider dateTimeProvider)
+    public CreateTodoCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(c => c.Description).NotEmpty().MaximumLength(TodoItem.DescriptionMaxLength);
         RuleFor(c => c.Priority).IsInEnum();
         RuleFor(c => c.DueDate)
-            .Must(dueDate => dueDate >= dateTimeProvider.UtcNow.Date)
+            .Must(dueDate => dueDate >= timeProvider.GetUtcNow().UtcDateTime.Date)
             .When(c => c.DueDate.HasValue)
             .WithMessage("The due date cannot be in the past.");
         RuleFor(c => c.Labels).NotNull().Must(labels => labels.Count <= MaxLabels)

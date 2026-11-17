@@ -25,6 +25,7 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration) =>
         services
+            .AddSingleton(TimeProvider.System)
             .AddInjectableServices(typeof(DependencyInjection).Assembly)
             .AddCaching()
             .AddDatabase(configuration)

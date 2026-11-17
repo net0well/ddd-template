@@ -4,7 +4,6 @@ using Application.Abstractions.Messaging;
 using Domain.Todos;
 using Microsoft.Extensions.Caching.Hybrid;
 using SharedKernel.Results;
-using SharedKernel.Time;
 
 namespace Application.Todos.Complete;
 
@@ -12,7 +11,7 @@ internal sealed class CompleteTodoCommandHandler(
     ITodoItemsWritableRepository todoItems,
     IUnitOfWork unitOfWork,
     IUserContext userContext,
-    IDateTimeProvider dateTimeProvider,
+    TimeProvider timeProvider,
     HybridCache cache)
     : ICommandHandler<CompleteTodoCommand>
 {
@@ -25,7 +24,7 @@ internal sealed class CompleteTodoCommandHandler(
             return CommandResult.Fail(TodoItemErrors.NotFound(command.TodoItemId));
         }
 
-        todoItem.Complete(dateTimeProvider.UtcNow);
+        todoItem.Complete(timeProvider.GetUtcNow().UtcDateTime);
 
         if (!todoItem.IsValid)
         {

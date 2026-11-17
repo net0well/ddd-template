@@ -23,4 +23,11 @@ public sealed class JwtOptions
 
     [Range(1, 365)]
     public int RefreshTokenExpirationInDays { get; init; } = 7;
+
+    /// <summary>
+    /// A rotated token presented again within this window gets a 409 (no new tokens, session kept) instead of
+    /// revoking every session: two tabs refreshing at the same time. 0 disables it.
+    /// </summary>
+    [Range(0, 300)]
+    public int RefreshTokenReuseGracePeriodInSeconds { get; init; } = 30;
 }

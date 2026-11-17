@@ -18,11 +18,11 @@ public sealed class AuditingTests(IntegrationTestWebAppFactory factory) : BaseIn
         DateTime before = DateTime.UtcNow.AddSeconds(-5);
 
         // Act
-        HttpResponseMessage created = await HttpClient.PostAsJsonAsync("todos", new { description = "Audited", priority = "Normal" });
+        HttpResponseMessage created = await HttpClient.PostAsJsonAsync("todos", new { description = "Audited", priority = "Normal" }, TestContext.Current.CancellationToken);
         Guid todoId = await ReadDataAsync<Guid>(created);
         TodoItem afterCreate = await LoadAsync<TodoItem>(todoId);
 
-        (await HttpClient.PutAsync($"todos/{todoId}/complete", null)).EnsureSuccessStatusCode();
+        (await HttpClient.PutAsync($"todos/{todoId}/complete", null, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
         TodoItem afterChange = await LoadAsync<TodoItem>(todoId);
 
         // Assert

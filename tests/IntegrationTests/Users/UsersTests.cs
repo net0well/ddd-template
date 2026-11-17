@@ -1,5 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using Application.Abstractions.Authentication;
+using Infrastructure.Database;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace IntegrationTests.Users;
 
@@ -13,7 +17,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         // Act
         HttpResponseMessage response = await HttpClient.PostAsJsonAsync(
             "users/register",
-            new { email = UniqueEmail(), firstName = "Test", lastName = "User", password = Password });
+            new { email = UniqueEmail(), firstName = "Test", lastName = "User", password = Password }, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -30,7 +34,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         // Act
         HttpResponseMessage response = await HttpClient.PostAsJsonAsync(
             "users/register",
-            new { email = email.ToUpperInvariant(), firstName = "Test", lastName = "User", password = Password });
+            new { email = email.ToUpperInvariant(), firstName = "Test", lastName = "User", password = Password }, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -70,7 +74,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         // Act
         HttpResponseMessage response = await HttpClient.PostAsJsonAsync(
             "users/login",
-            new { email, password = password ?? Password });
+            new { email, password = password ?? Password }, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -83,7 +87,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task Login_Should_ReturnBadRequest_WhenInputIsInvalid(string email, string password)
     {
         // Act
-        HttpResponseMessage response = await HttpClient.PostAsJsonAsync("users/login", new { email, password });
+        HttpResponseMessage response = await HttpClient.PostAsJsonAsync("users/login", new { email, password }, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -106,11 +110,29 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
     }
 
     [Fact]
-    public async Task RefreshToken_Should_RevokeTheWholeSession_WhenARotatedTokenIsReused()
+    public async Task RefreshToken_Should_AnswerConflict_AndKeepTheSession_WhenTheTokenWasJustRotated()
+    {
+        // Arrange: a second tab refreshes with the token the first one has just rotated
+        AccessTokens tokens = await LoginAsync(await RegisterNewUserAsync());
+        AccessTokens rotated = await ReadDataAsync<AccessTokens>(await RefreshAsync(tokens.RefreshToken));
+
+        // Act
+        HttpResponseMessage secondTab = await RefreshAsync(tokens.RefreshToken);
+        HttpResponseMessage withNewestToken = await RefreshAsync(rotated.RefreshToken);
+
+        // Assert
+        secondTab.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await ReadEnvelopeAsync<AccessTokens>(secondTab)).Notifications.ShouldHaveSingleItem().Key.ShouldBe("Users.RefreshTokenConflict");
+        withNewestToken.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Should_RevokeTheWholeSession_WhenARotatedTokenIsReusedAfterTheGracePeriod()
     {
         // Arrange
         AccessTokens tokens = await LoginAsync(await RegisterNewUserAsync());
         AccessTokens rotated = await ReadDataAsync<AccessTokens>(await RefreshAsync(tokens.RefreshToken));
+        await MoveRotationBackAsync(tokens.RefreshToken, TimeSpan.FromMinutes(1));
 
         // Act
         HttpResponseMessage reuse = await RefreshAsync(tokens.RefreshToken);
@@ -139,7 +161,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         Authenticate(tokens.AccessToken);
 
         // Act
-        HttpResponseMessage logout = await HttpClient.PostAsync("users/logout", null);
+        HttpResponseMessage logout = await HttpClient.PostAsync("users/logout", null, TestContext.Current.CancellationToken);
         HttpResponseMessage refresh = await RefreshAsync(tokens.RefreshToken);
 
         // Assert
@@ -155,7 +177,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         Authenticate(tokens.AccessToken);
 
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync($"users/{userId}");
+        HttpResponseMessage response = await HttpClient.GetAsync($"users/{userId}", TestContext.Current.CancellationToken);
 
         // Assert
         response.EnsureSuccessStatusCode();
@@ -173,7 +195,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         Authenticate(tokens.AccessToken);
 
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync($"users/{otherUserId}");
+        HttpResponseMessage response = await HttpClient.GetAsync($"users/{otherUserId}", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
@@ -183,7 +205,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task GetUser_Should_ReturnUnauthorized_WhenTokenIsMissing()
     {
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync($"users/{Guid.NewGuid()}");
+        HttpResponseMessage response = await HttpClient.GetAsync($"users/{Guid.NewGuid()}", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -200,4 +222,15 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
 
     private Task<HttpResponseMessage> RefreshAsync(string refreshToken) =>
         HttpClient.PostAsJsonAsync("users/refresh-token", new { refreshToken });
+
+    // Simulates time passing: the rotation happened longer ago than the grace period.
+    private async Task MoveRotationBackAsync(string refreshToken, TimeSpan by)
+    {
+        using IServiceScope scope = Factory.Services.CreateScope();
+        string hash = scope.ServiceProvider.GetRequiredService<ITokenProvider>().HashRefreshToken(refreshToken);
+
+        await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().RefreshTokens
+            .Where(token => token.TokenHash == hash)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedOnUtc, token => token.RevokedOnUtc - by));
+    }
 }

@@ -4,7 +4,6 @@ using Application.Abstractions.Messaging;
 using Domain.Users;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Results;
-using SharedKernel.Time;
 
 namespace Application.Users.Refresh;
 
@@ -13,12 +12,12 @@ internal sealed class RefreshTokenCommandHandler(
     IUsersSearchableRepository users,
     IUnitOfWork unitOfWork,
     ITokenProvider tokenProvider,
-    IDateTimeProvider dateTimeProvider,
+    TimeProvider timeProvider,
     ILogger<RefreshTokenCommandHandler> logger) : ICommandHandler<RefreshTokenCommand, AccessTokensResponse>
 {
     public async Task<CommandResult<AccessTokensResponse>> Handle(RefreshTokenCommand command, CancellationToken cancellationToken)
     {
-        DateTime utcNow = dateTimeProvider.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
 
         RefreshToken? current = await refreshTokens.GetByTokenHashAsync(
             tokenProvider.HashRefreshToken(command.RefreshToken),
@@ -27,6 +26,12 @@ internal sealed class RefreshTokenCommandHandler(
         if (current is null)
         {
             return CommandResult.Fail<AccessTokensResponse>(UserErrors.InvalidRefreshToken);
+        }
+
+        if (current.WasRotatedWithin(tokenProvider.RefreshTokenReuseGracePeriod, utcNow))
+        {
+            // Rotated moments ago by another request of the same client: no new tokens, but the session stays.
+            return CommandResult.Fail<AccessTokensResponse>(UserErrors.RefreshTokenConflict);
         }
 
         if (current.IsRevoked)

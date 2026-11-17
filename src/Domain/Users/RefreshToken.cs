@@ -52,6 +52,13 @@ public sealed class RefreshToken : AggregateRoot
     public bool IsActive(DateTime utcNow) => !IsRevoked && !IsExpired(utcNow);
 
     /// <summary>
+    /// Replaced by a rotation at most <paramref name="gracePeriod"/> ago: presented again, it is more likely a
+    /// concurrent refresh of the same client (another tab) than a stolen token. Revocations do not count.
+    /// </summary>
+    public bool WasRotatedWithin(TimeSpan gracePeriod, DateTime utcNow) =>
+        ReplacedByTokenId.HasValue && RevokedOnUtc.HasValue && utcNow - RevokedOnUtc.Value <= gracePeriod;
+
+    /// <summary>
     /// Revokes this token and returns its replacement. The caller must check <see cref="IsActive"/> first.
     /// </summary>
     public RefreshToken Rotate(string newTokenHash, DateTime utcNow, TimeSpan lifetime)

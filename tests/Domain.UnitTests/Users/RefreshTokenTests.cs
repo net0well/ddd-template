@@ -58,6 +58,30 @@ public sealed class RefreshTokenTests
     }
 
     [Fact]
+    public void WasRotatedWithin_Should_BeTrue_OnlyInsideTheWindowAfterARotation()
+    {
+        // Arrange
+        var token = RefreshToken.Issue(UserId, "hash", UtcNow, Lifetime);
+        token.Rotate("new-hash", UtcNow, Lifetime);
+        var window = TimeSpan.FromSeconds(30);
+
+        // Act & Assert
+        token.WasRotatedWithin(window, UtcNow.AddSeconds(30)).ShouldBeTrue();
+        token.WasRotatedWithin(window, UtcNow.AddSeconds(31)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WasRotatedWithin_Should_BeFalse_ForARevokedToken()
+    {
+        // Arrange
+        var token = RefreshToken.Issue(UserId, "hash", UtcNow, Lifetime);
+        token.Revoke(UtcNow);
+
+        // Act & Assert
+        token.WasRotatedWithin(TimeSpan.FromMinutes(1), UtcNow).ShouldBeFalse();
+    }
+
+    [Fact]
     public void Revoke_Should_KeepTheFirstRevocationDate()
     {
         // Arrange

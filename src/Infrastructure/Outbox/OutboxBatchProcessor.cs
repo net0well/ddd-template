@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SharedKernel.DependencyInjection;
 using SharedKernel.Events;
-using SharedKernel.Time;
 
 namespace Infrastructure.Outbox;
 
@@ -24,7 +23,7 @@ internal sealed class OutboxBatchProcessor(
     ApplicationDbContext context,
     DomainEventSerializer serializer,
     IServiceScopeFactory serviceScopeFactory,
-    IDateTimeProvider dateTimeProvider,
+    TimeProvider timeProvider,
     IOptions<OutboxOptions> options,
     ILogger<OutboxBatchProcessor> logger) : IInjectScoped
 {
@@ -47,7 +46,7 @@ internal sealed class OutboxBatchProcessor(
     /// <returns>How many messages were deleted.</returns>
     public async Task<int> DeleteProcessedAsync(CancellationToken cancellationToken)
     {
-        DateTime cutoff = dateTimeProvider.UtcNow.AddDays(-_options.RetentionInDays);
+        DateTime cutoff = timeProvider.GetUtcNow().UtcDateTime.AddDays(-_options.RetentionInDays);
         int total = 0;
         int deleted;
 
@@ -71,7 +70,7 @@ internal sealed class OutboxBatchProcessor(
         // READ COMMITTED (the default): stricter isolation makes SKIP LOCKED fail with serialization errors.
         await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
-        DateTime utcNow = dateTimeProvider.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
 
         // Same predicate as the partial index ix_outbox_messages_pending, ordered by its key.
         List<OutboxMessage> messages = await context.OutboxMessages

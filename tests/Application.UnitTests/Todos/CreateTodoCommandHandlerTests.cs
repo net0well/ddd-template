@@ -41,7 +41,7 @@ public sealed class CreateTodoCommandHandlerTests : BaseHandlerTest
         // Assert
         result.Notifications.ShouldContain(TodoItemErrors.DescriptionRequired);
         _todoItems.DidNotReceiveWithAnyArgs().Add(default!);
-        await UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]

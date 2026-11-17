@@ -22,7 +22,7 @@ public sealed class SessionAndEventHandlerTests : BaseHandlerTest
         ];
         refreshTokens.GetActiveByUserIdAsync(CurrentUserId, UtcNow, Arg.Any<CancellationToken>()).Returns(sessions);
 
-        var handler = new LogoutUserCommandHandler(refreshTokens, UnitOfWork, UserContext, DateTimeProvider);
+        var handler = new LogoutUserCommandHandler(refreshTokens, UnitOfWork, UserContext, Clock);
 
         // Act
         CommandResult result = await handler.Handle(new LogoutUserCommand(), CancellationToken.None);

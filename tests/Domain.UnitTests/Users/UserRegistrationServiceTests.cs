@@ -14,7 +14,7 @@ public sealed class UserRegistrationServiceTests
         var service = new UserRegistrationService(_users);
 
         // Act
-        User user = await service.RegisterAsync("John@Example.com", "John", "Doe", "hash");
+        User user = await service.RegisterAsync("John@Example.com", "John", "Doe", "hash", TestContext.Current.CancellationToken);
 
         // Assert
         user.Notifications.ShouldHaveSingleItem().ShouldBe(UserErrors.EmailNotUnique);
@@ -27,11 +27,11 @@ public sealed class UserRegistrationServiceTests
         var service = new UserRegistrationService(_users);
 
         // Act
-        User user = await service.RegisterAsync("invalid", "John", "Doe", "hash");
+        User user = await service.RegisterAsync("invalid", "John", "Doe", "hash", TestContext.Current.CancellationToken);
 
         // Assert
         user.IsValid.ShouldBeFalse();
-        await _users.DidNotReceiveWithAnyArgs().ExistsByEmailAsync(default!, default);
+        await _users.DidNotReceiveWithAnyArgs().ExistsByEmailAsync(default!, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public sealed class UserRegistrationServiceTests
         var service = new UserRegistrationService(_users);
 
         // Act
-        User user = await service.RegisterAsync("john@example.com", "John", "Doe", "hash");
+        User user = await service.RegisterAsync("john@example.com", "John", "Doe", "hash", TestContext.Current.CancellationToken);
 
         // Assert
         user.IsValid.ShouldBeTrue();

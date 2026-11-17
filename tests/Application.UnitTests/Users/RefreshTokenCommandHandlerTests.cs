@@ -11,6 +11,7 @@ namespace Application.UnitTests.Users;
 public sealed class RefreshTokenCommandHandlerTests : BaseHandlerTest
 {
     private static readonly TimeSpan Lifetime = TimeSpan.FromDays(7);
+    private static readonly TimeSpan GracePeriod = TimeSpan.FromSeconds(30);
 
     private readonly IRefreshTokensWritableRepository _refreshTokens = Substitute.For<IRefreshTokensWritableRepository>();
     private readonly IUsersSearchableRepository _users = Substitute.For<IUsersSearchableRepository>();
@@ -23,13 +24,14 @@ public sealed class RefreshTokenCommandHandlerTests : BaseHandlerTest
         _tokenProvider.GenerateRefreshToken().Returns("new-token");
         _tokenProvider.Create(Arg.Any<User>()).Returns("new-access-token");
         _tokenProvider.RefreshTokenLifetime.Returns(Lifetime);
+        _tokenProvider.RefreshTokenReuseGracePeriod.Returns(GracePeriod);
 
         _handler = new RefreshTokenCommandHandler(
             _refreshTokens,
             _users,
             UnitOfWork,
             _tokenProvider,
-            DateTimeProvider,
+            Clock,
             NullLogger<RefreshTokenCommandHandler>.Instance);
     }
 
@@ -73,6 +75,40 @@ public sealed class RefreshTokenCommandHandlerTests : BaseHandlerTest
         result.Notifications.ShouldHaveSingleItem().ShouldBe(UserErrors.InvalidRefreshToken);
         otherSession.IsRevoked.ShouldBeTrue();
         await UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnConflict_AndKeepTheSession_WhenTheTokenWasJustRotated()
+    {
+        // Arrange: another tab rotated it five seconds ago
+        RefreshToken rotated = StoredToken("tab-token", issuedAt: UtcNow.AddHours(-1));
+        rotated.Rotate("hash-of-other-tab", UtcNow.AddSeconds(-5), Lifetime);
+
+        // Act
+        CommandResult<AccessTokensResponse> result = await _handler.Handle(new RefreshTokenCommand("tab-token"), CancellationToken.None);
+
+        // Assert
+        result.Notifications.ShouldHaveSingleItem().ShouldBe(UserErrors.RefreshTokenConflict);
+        await _refreshTokens.DidNotReceiveWithAnyArgs().GetActiveByUserIdAsync(Guid.Empty, UtcNow, CancellationToken.None);
+        await UnitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_Should_RevokeEverySession_WhenARotatedTokenIsReusedAfterTheGracePeriod()
+    {
+        // Arrange
+        RefreshToken rotated = StoredToken("old-token", issuedAt: UtcNow.AddHours(-1));
+        rotated.Rotate("hash-of-successor", UtcNow.AddSeconds(-5), Lifetime);
+        var successor = RefreshToken.Issue(rotated.UserId, "hash-of-successor", UtcNow.AddSeconds(-5), Lifetime);
+        _refreshTokens.GetActiveByUserIdAsync(rotated.UserId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>()).Returns([successor]);
+        Clock.Advance(GracePeriod);
+
+        // Act
+        CommandResult<AccessTokensResponse> result = await _handler.Handle(new RefreshTokenCommand("old-token"), CancellationToken.None);
+
+        // Assert
+        result.Notifications.ShouldHaveSingleItem().ShouldBe(UserErrors.InvalidRefreshToken);
+        successor.IsRevoked.ShouldBeTrue();
     }
 
     [Fact]

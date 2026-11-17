@@ -4,12 +4,11 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using SharedKernel.DependencyInjection;
 using SharedKernel.Primitives;
-using SharedKernel.Time;
 
 namespace Infrastructure.Database;
 
 /// <summary>Stamps <see cref="IAuditable"/> entities on save. Creation values can never be overwritten.</summary>
-internal sealed class AuditingInterceptor(IDateTimeProvider dateTimeProvider, IUserContext userContext)
+internal sealed class AuditingInterceptor(TimeProvider timeProvider, IUserContext userContext)
     : SaveChangesInterceptor, IInjectScoped
 {
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
@@ -36,7 +35,7 @@ internal sealed class AuditingInterceptor(IDateTimeProvider dateTimeProvider, IU
             return;
         }
 
-        DateTime utcNow = dateTimeProvider.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         Guid? userId = userContext.TryGetUserId(out Guid id) ? id : null;
 
         foreach (EntityEntry<IAuditable> entry in context.ChangeTracker.Entries<IAuditable>())

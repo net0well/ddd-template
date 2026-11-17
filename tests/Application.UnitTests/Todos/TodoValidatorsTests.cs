@@ -3,7 +3,7 @@ using Application.Todos.Get;
 using Application.Todos.Update;
 using Domain.Todos;
 using FluentValidation.TestHelper;
-using SharedKernel.Time;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Application.UnitTests.Todos;
 
@@ -17,9 +17,7 @@ public sealed class TodoValidatorsTests
 
     public TodoValidatorsTests()
     {
-        IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
-        dateTimeProvider.UtcNow.Returns(UtcNow);
-        _createValidator = new CreateTodoCommandValidator(dateTimeProvider);
+        _createValidator = new CreateTodoCommandValidator(new FakeTimeProvider(new DateTimeOffset(UtcNow)));
     }
 
     [Fact]

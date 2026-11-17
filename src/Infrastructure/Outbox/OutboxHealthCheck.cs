@@ -1,7 +1,6 @@
 using Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using SharedKernel.Time;
 
 namespace Infrastructure.Outbox;
 
@@ -9,7 +8,7 @@ namespace Infrastructure.Outbox;
 /// Degraded, never unhealthy (the API still serves requests), when messages became dead letters or the oldest
 /// pending message waits longer than expected, which usually means no processor is running.
 /// </summary>
-internal sealed class OutboxHealthCheck(ApplicationDbContext dbContext, IDateTimeProvider dateTimeProvider) : IHealthCheck
+internal sealed class OutboxHealthCheck(ApplicationDbContext dbContext, TimeProvider timeProvider) : IHealthCheck
 {
     private static readonly TimeSpan MaxDelay = TimeSpan.FromMinutes(5);
 
@@ -23,7 +22,7 @@ internal sealed class OutboxHealthCheck(ApplicationDbContext dbContext, IDateTim
             .Where(message => message.ProcessedOnUtc == null && message.DeadLetteredOnUtc == null)
             .MinAsync(message => (DateTime?)message.OccurredOnUtc, cancellationToken);
 
-        TimeSpan delay = oldestPending is null ? TimeSpan.Zero : dateTimeProvider.UtcNow - oldestPending.Value;
+        TimeSpan delay = oldestPending is null ? TimeSpan.Zero : timeProvider.GetUtcNow().UtcDateTime - oldestPending.Value;
 
         var data = new Dictionary<string, object>
         {

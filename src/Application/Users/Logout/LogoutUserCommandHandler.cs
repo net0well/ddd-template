@@ -3,7 +3,6 @@ using Application.Abstractions.Data;
 using Application.Abstractions.Messaging;
 using Domain.Users;
 using SharedKernel.Results;
-using SharedKernel.Time;
 
 namespace Application.Users.Logout;
 
@@ -12,12 +11,12 @@ internal sealed class LogoutUserCommandHandler(
     IRefreshTokensWritableRepository refreshTokens,
     IUnitOfWork unitOfWork,
     IUserContext userContext,
-    IDateTimeProvider dateTimeProvider)
+    TimeProvider timeProvider)
     : ICommandHandler<LogoutUserCommand>
 {
     public async Task<CommandResult> Handle(LogoutUserCommand command, CancellationToken cancellationToken)
     {
-        DateTime utcNow = dateTimeProvider.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
 
         foreach (RefreshToken token in await refreshTokens.GetActiveByUserIdAsync(userContext.UserId, utcNow, cancellationToken))
         {

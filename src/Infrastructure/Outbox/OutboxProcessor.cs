@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SharedKernel.Time;
 
 namespace Infrastructure.Outbox;
 
@@ -12,7 +11,7 @@ namespace Infrastructure.Outbox;
 /// </summary>
 internal sealed class OutboxProcessor(
     IServiceScopeFactory serviceScopeFactory,
-    IDateTimeProvider dateTimeProvider,
+    TimeProvider timeProvider,
     IOptions<OutboxOptions> options,
     ILogger<OutboxProcessor> logger) : BackgroundService
 {
@@ -24,7 +23,7 @@ internal sealed class OutboxProcessor(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var pollingInterval = TimeSpan.FromMilliseconds(_options.PollingIntervalInMilliseconds);
-        DateTime nextCleanup = dateTimeProvider.UtcNow;
+        DateTime nextCleanup = timeProvider.GetUtcNow().UtcDateTime;
         int consecutiveFailures = 0;
 
         try
@@ -33,10 +32,10 @@ internal sealed class OutboxProcessor(
             {
                 consecutiveFailures = await DrainAsync(stoppingToken) ? 0 : consecutiveFailures + 1;
 
-                if (consecutiveFailures == 0 && dateTimeProvider.UtcNow >= nextCleanup)
+                if (consecutiveFailures == 0 && timeProvider.GetUtcNow().UtcDateTime >= nextCleanup)
                 {
                     await CleanupAsync(stoppingToken);
-                    nextCleanup = dateTimeProvider.UtcNow + CleanupInterval;
+                    nextCleanup = timeProvider.GetUtcNow().UtcDateTime + CleanupInterval;
                 }
 
                 await Task.Delay(consecutiveFailures == 0 ? pollingInterval : FailureDelay(consecutiveFailures), stoppingToken);

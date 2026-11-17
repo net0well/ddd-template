@@ -6,6 +6,9 @@ public interface ITokenProvider
 {
     TimeSpan RefreshTokenLifetime { get; }
 
+    /// <summary>How long a just-rotated refresh token is answered with a conflict instead of reuse detection.</summary>
+    TimeSpan RefreshTokenReuseGracePeriod { get; }
+
     /// <summary>Signed access token (JWT).</summary>
     string Create(User user);
 

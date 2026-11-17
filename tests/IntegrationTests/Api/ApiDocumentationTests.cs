@@ -9,11 +9,11 @@ public sealed class ApiDocumentationTests(IntegrationTestWebAppFactory factory) 
     public async Task Swagger_Should_GenerateTheDocument_WithTheBearerScheme()
     {
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync("swagger/v1/swagger.json");
+        HttpResponseMessage response = await HttpClient.GetAsync("swagger/v1/swagger.json", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         JsonElement paths = document.RootElement.GetProperty("paths");
 
         JsonElement createTodo = paths.GetProperty("/todos").GetProperty("post");
@@ -40,8 +40,8 @@ public sealed class ApiDocumentationTests(IntegrationTestWebAppFactory factory) 
     public async Task Health_Should_ReportHealthy_WithoutAuthentication()
     {
         // Act
-        HttpResponseMessage live = await HttpClient.GetAsync("health/live");
-        HttpResponseMessage ready = await HttpClient.GetAsync("health");
+        HttpResponseMessage live = await HttpClient.GetAsync("health/live", TestContext.Current.CancellationToken);
+        HttpResponseMessage ready = await HttpClient.GetAsync("health", TestContext.Current.CancellationToken);
 
         // Assert
         live.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -54,7 +54,7 @@ public sealed class ApiDocumentationTests(IntegrationTestWebAppFactory factory) 
     public async Task FrameworkErrors_Should_UseTheStandardEnvelope(string path, HttpStatusCode status, string key)
     {
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync(path);
+        HttpResponseMessage response = await HttpClient.GetAsync(path, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.ShouldBe(status);
@@ -67,7 +67,7 @@ public sealed class ApiDocumentationTests(IntegrationTestWebAppFactory factory) 
     public async Task Envelope_Should_CarryTheTraceIdOfTheRequest_ForLogLookup()
     {
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync("todos");
+        HttpResponseMessage response = await HttpClient.GetAsync("todos", TestContext.Current.CancellationToken);
 
         // Assert
         Envelope<object> envelope = await ReadEnvelopeAsync<object>(response);
@@ -86,7 +86,7 @@ public sealed class ApiDocumentationTests(IntegrationTestWebAppFactory factory) 
         request.Headers.Add("Correlation-Id", "abc-123");
 
         // Act
-        HttpResponseMessage response = await HttpClient.SendAsync(request);
+        HttpResponseMessage response = await HttpClient.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
         response.Headers.GetValues("Correlation-Id").ShouldHaveSingleItem().ShouldBe("abc-123");
