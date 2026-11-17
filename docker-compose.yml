@@ -44,6 +44,11 @@ services:
   observability:
     image: grafana/otel-lgtm:0.29.1
     container_name: observability
+    environment:
+      # The image allows anonymous admin access by default; require a login instead.
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env (copy .env.example)}
     ports:
       - 3000:3000   # Grafana
       - 4317:4317   # OTLP gRPC
